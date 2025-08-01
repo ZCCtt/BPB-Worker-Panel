@@ -48,9 +48,8 @@ async function processHtmlPages() {
 }
 
 async function buildWorker() {
-
     const htmls = await processHtmlPages();
-    const faviconBuffer = readFileSync('./src/assets/favicon.ico');
+    const faviconBuffer = readFileSync(join(__dirname, '../src/assets/favicon.ico'));
     const faviconBase64 = faviconBuffer.toString('base64');
 
     const code = await build({
@@ -69,10 +68,12 @@ async function buildWorker() {
             __ICON__: JSON.stringify(faviconBase64)
         }
     });
-    
+
     console.log('✅ Worker built successfuly!');
 
     let finalCode;
+    mkdirSync(DIST_PATH, { recursive: true }); // 确保输出目录存在
+
     if (devMode) {
         finalCode = code.outputFiles[0].text;
     } else {
@@ -83,9 +84,10 @@ async function buildWorker() {
             }
         });
 
-writeFileSync('./dist/worker.preobfs.js', minifiedCode.code, 'utf8');
-        console.log('✅ Worker minified successfuly!');
-    
+        // 保存混淆前（压缩后）代码，建议用绝对路径
+        writeFileSync(join(DIST_PATH, 'worker.preobfs.js'), minifiedCode.code, 'utf8');
+        console.log('✅ Worker minified and pre-obfuscated code saved!');
+
         const obfuscationResult = obfs.obfuscate(minifiedCode.code, {
             rotateStringArray: true,
             stringArrayThreshold: 1,
@@ -99,21 +101,21 @@ writeFileSync('./dist/worker.preobfs.js', minifiedCode.code, 'utf8');
             deadCodeInjectionThreshold: 0.2,
             target: "browser"
         });
-    
+
         console.log('✅ Worker obfuscated successfuly!');
         finalCode = obfuscationResult.getObfuscatedCode();
     }
 
     const worker = `// @ts-nocheck\n${finalCode}`;
-    mkdirSync(DIST_PATH, { recursive: true });
-    writeFileSync('./dist/worker.js', worker, 'utf8');
+    writeFileSync(join(DIST_PATH, 'worker.js'), worker, 'utf8');
 
     const zip = new JSZip();
     zip.file('_worker.js', worker);
-    zip.generateAsync({
+    const nodebuffer = await zip.generateAsync({
         type: 'nodebuffer',
         compression: 'DEFLATE'
-    }).then(nodebuffer => writeFileSync('./dist/worker.zip', nodebuffer));
+    });
+    writeFileSync(join(DIST_PATH, 'worker.zip'), nodebuffer);
 
     console.log('✅ Done!');
 }
