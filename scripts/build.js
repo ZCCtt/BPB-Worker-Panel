@@ -82,7 +82,7 @@ async function buildWorker() {
                 comments: false
             }
         });
-    
+        writeFileSync('./dist/worker.preobfs.js', minifiedCode.code, 'utf8');
         console.log('✅ Worker minified successfuly!');
     
         const obfuscationResult = obfs.obfuscate(minifiedCode.code, {
