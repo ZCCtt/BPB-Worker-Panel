@@ -1,0 +1,67 @@
+name: Auto Sync Fork
+
+on:
+  schedule:
+    - cron: "0 0 * * *"  # 每天 UTC 0 点
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    
+    # 关键：使用完整的权限声明
+    permissions:
+      actions: write   # 工作流文件权限
+      contents: write  # 代码内容权限
+      pull-requests: write  # PR 权限
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # 使用 PAT 而不是默认的 GITHUB_TOKEN
+          token: ${{ secrets.FULL_ACCESS_PAT }}
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions@users.noreply.github.com"
+          git remote add upstream https://github.combia-pain-bache/BPB-Worker-Panel.git
+          git fetch upstream
+
+      - name: Merge upstream changes
+        run: |
+          # 尝试合并上游变更
+          if git merge --ff-only upstream/main; then
+            echo "快进合并成功"
+            git push origin main
+          else
+            echo "需要手动合并，创建同步分支"
+            # 创建带时间戳的分支
+            TIMESTAMP=$(date +%s)
+            BRANCH_NAME="sync-$TIMESTAMP"
+            git checkout -b $BRANCH_NAME
+            git merge upstream/main --no-edit
+            git push origin $BRANCH_NAME
+            
+            # 创建 PR (使用 GitHub CLI)
+            echo "创建 PR: $BRANCH_NAME → main"
+            gh pr create \
+              --title "上游同步: $(date -d @$TIMESTAMP +'%Y-%m-%d %H:%M')" \
+              --body "自动同步上游变更" \
+              --base main \
+              --head $BRANCH_NAME
+          fi
+        env:
+          # 使用相同的 PAT 进行认证
+          GITHUB_TOKEN: ${{ secrets.FULL_ACCESS_PAT }}
+
+      - name: Install GitHub CLI (仅冲突时需要)
+        if: ${{ failure() }}
+        run: |
+          # 仅在需要创建 PR 时安装 GitHub CLI
+          sudo apt-get update
+          sudo apt-get install -y gh
+        env:
+          GITHUB_TOKEN: ${{ secrets.FULL_ACCESS_PAT }}
