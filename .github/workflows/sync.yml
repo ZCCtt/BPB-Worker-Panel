@@ -27,7 +27,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions@users.noreply.github.com"
-          git remote add upstream https://github.combia-pain-bache/BPB-Worker-Panel.git
+          git remote add upstream https://github.com/bia-pain-bache/BPB-Worker-Panel.git
           git fetch upstream
 
       - name: Merge upstream changes
